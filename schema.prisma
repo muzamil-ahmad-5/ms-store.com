@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  role         String     @default("CUSTOMER") // "CUSTOMER" | "ADMIN"
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  addresses    Address[]
+  reviews      Review[]
+  wishlist     Wishlist?
+  cart         Cart?
+  auditLogs    AuditLog[]
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  whatsapp    String?
+  email       String?
+  addressLine String
+  city        String
+  postalCode  String?
+  notes       String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model Category {
+  id          String    @id
+  name        String
+  subtitle    String
+  description String
+  image       String
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id            String           @id @default(uuid())
+  name          String
+  slug          String           @unique
+  sku           String           @unique
+  description   String
+  price         Float
+  originalPrice Float?
+  categoryId    String
+  category      Category         @relation(fields: [categoryId], references: [id])
+  collection    String?          // e.g. "signature", "essential", "gift", "seasonal"
+  inStock       Boolean          @default(true)
+  stock         Int              @default(10)
+  isNew         Boolean          @default(false)
+  isFeatured    Boolean          @default(false)
+  discountBadge String?
+  imagesJson    String           // JSON string of images array
+  colorsJson    String           // JSON string of colors array
+  sizesJson     String           // JSON string of sizes array
+  detailsJson   String           // JSON string of feature bullet points
+  specsJson     String           // JSON string of technical specs
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  variants      ProductVariant[]
+  reviews       Review[]
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+}
+
+model ProductVariant {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku        String   @unique
+  color      String?
+  size       String?
+  material   String?
+  stock      Int      @default(0)
+  priceDelta Float    @default(0.0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Wishlist {
+  id        String         @id @default(uuid())
+  userId    String         @unique
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  items     WishlistItem[]
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String
+  color     String?
+  size      String?
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id               String               @id @default(uuid())
+  orderNumber      String               @unique // e.g. "MSC-20261015-8492"
+  userId           String?
+  user             User?                @relation(fields: [userId], references: [id])
+  customerName     String
+  customerEmail    String?
+  customerPhone    String
+  customerWhatsapp String?
+  addressId        String?
+  address          Address?             @relation(fields: [addressId], references: [id])
+  shippingAddress  String               // Serialized snapshot of full address
+  city             String
+  subtotal         Float
+  shippingFee      Float
+  discountAmount   Float                @default(0.0)
+  finalTotal       Float
+  paymentMethod    String               @default("CASH_ON_DELIVERY") // "CASH_ON_DELIVERY" | "BANK_TRANSFER"
+  paymentStatus    String               @default("PENDING") // "PENDING" | "PAID" | "FAILED"
+  orderStatus      String               @default("PENDING") // "PENDING" | "CONFIRMED" | "PROCESSING" | "PACKED" | "DISPATCHED" | "DELIVERED" | "CANCELLED"
+  orderNotes       String?
+  couponCode       String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  paymentRecords   PaymentRecord[]
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String
+  sku       String
+  price     Float    // Historical price snapshot
+  quantity  Int
+  color     String?
+  size      String?
+  image     String?
+  lineTotal Float
+  createdAt DateTime @default(now())
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  changedBy String?  @default("SYSTEM")
+  createdAt DateTime @default(now())
+}
+
+model PaymentRecord {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentMethod String
+  paymentStatus String
+  transactionRef String?
+  payloadJson   String?
+  createdAt     DateTime @default(now())
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String?
+  discountType  String    @default("PERCENTAGE") // "PERCENTAGE" | "FIXED"
+  discountValue Float
+  minPurchase   Float     @default(0.0)
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  isActive      Boolean   @default(true)
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Review {
+  id                 String   @id @default(uuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?    @relation(fields: [userId], references: [id])
+  customerName       String
+  customerEmail      String?
+  rating             Int      @default(5)
+  title              String
+  comment            String
+  isVerifiedPurchase Boolean  @default(false)
+  isApproved         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model NewsletterSubscription {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ContactInquiry {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("NEW") // "NEW" | "RESOLVED"
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoreSettings {
+  id                     String   @id @default("singleton")
+  brandName              String   @default("MS COLLECTION")
+  tagline                String   @default("TIMELESS STYLE. EVERYDAY ESSENTIALS.")
+  headline               String   @default("ELEVATE YOUR EVERYDAY.")
+  whatsappNumber         String   @default("923001234567")
+  supportPhone           String   @default("+92 300 1234567")
+  supportEmail           String   @default("concierge@mscollection.com")
+  businessHours          String   @default("Mon - Sat: 10:00 AM - 9:00 PM PKT")
+  instagramUrl           String   @default("https://instagram.com/mscollection")
+  facebookUrl            String   @default("")
+  tiktokUrl              String   @default("https://tiktok.com/@mscollection")
+  currency               String   @default("PKR")
+  shippingFee            Float    @default(250.0)
+  freeShippingThreshold  Float    @default(5000.0)
+  announcementText       String   @default("COMPLIMENTARY NATIONWIDE EXPRESS SHIPPING ON ORDERS OVER PKR 5,000")
+  deliveryEstimatedDays  String   @default("2-4 Business Days")
+  bankAccountDetails     String   @default("Bank: Standard Chartered Bank\nAccount Title: MS Collection Luxury Retail\nAccount Number: 01-2345678-01\nIBAN: PK36SCBL0000001234567801")
+  heroImageUrl           String   @default("https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=2000&auto=format&fit=crop")
+  heroSubtitle           String   @default("Discover timeless style, refined accessories, and everyday essentials curated for your individuality.")
+  updatedAt              DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
