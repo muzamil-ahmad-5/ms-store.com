@@ -104,14 +104,6 @@ Visit **http://localhost:5173** to explore the storefront.
 
 ---
 
-## 🔑 Default Accounts
-
-| Role | Email | Password |
-|---|---|---|
-| **Administrator** | `admin@mscollection.com` | `Admin@MS2026` |
-| **Verified Customer** | `customer@example.com` | `Customer@123` |
-
----
 
 ## 🧪 Testing
 
